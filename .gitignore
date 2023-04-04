@@ -70,3 +70,23 @@ crashlytics-build.properties
 # Temporary auto-generated Android Assets
 /[Aa]ssets/[Ss]treamingAssets/aa.meta
 /[Aa]ssets/[Ss]treamingAssets/aa/*
+
+
+##############################################################################
+# Mono-specific patterns
+##############################################################################
+
+.dirstamp
+compile
+mono.h
+mono-*.tar.*
+mono_crash*
+tmpinst-dir.stamp
+extensions-config.h
+*.dylib.dSYM
+*.mlpd
+llvm/build/
+llvm/usr/
+sdks/builds/llvm-*/
+sdks/builds/android-*/
+mcs/build/compiler-server.log
