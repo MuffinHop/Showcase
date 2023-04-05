@@ -1,2 +1,4 @@
 # Showcase<br>
 Showing off some of my coding skills in Unity!
+![Screen space refraction to give fluid like appearance to particles](duckfaucet.png "Screen space Refraction")
+![Duck get shattered, the hare gets space cut](shatter.png "Space cut & Shatter")
