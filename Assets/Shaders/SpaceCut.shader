@@ -71,8 +71,8 @@ Shader "Custom/SpaceCut"
                 float3 _position2 = position - float3(0.0,3.0,0.0);
                 _position.x += _position.y/4.0;
                 _position.x += _Time.y;
-                _position.x = abs(_position.x%1.0) - 0.5;
-                float d = sdBox(_position,float3(0.45,11.0,1.0));
+                _position.x = abs(_position.x%2.0) - 1.0;
+                float d = sdBox(_position,float3(0.75,11.0,1.0));
                 return d;
              }
             float Raymarch(float3 rayOrigin, float3 rayDirection)
