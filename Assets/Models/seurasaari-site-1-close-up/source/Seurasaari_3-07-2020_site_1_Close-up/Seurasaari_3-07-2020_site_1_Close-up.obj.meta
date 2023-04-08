@@ -3,7 +3,12 @@ guid: 7a6ec09fa91eb4df8bbbe4e1a5a8681b
 ModelImporter:
   serializedVersion: 21300
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Seurasaari_3-07-2020_site_1_Close-up_u1_v1
+    second: {fileID: 2100000, guid: cf9a23e814dce4d9fb7cb4fa157e5960, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0

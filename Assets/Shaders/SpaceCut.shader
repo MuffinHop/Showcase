@@ -31,10 +31,6 @@ Shader "Custom/SpaceCut"
                 float2 uv           : TEXCOORD3;
             };
            sampler2D _CameraDepthTexture;
-
-            #define PARTICLE_MAX 50
-            float4 DropletPositionArray[PARTICLE_MAX];
-            float DropletSizeArray[PARTICLE_MAX];
             sampler2D _MainTex;
             
             Varyings vert(Attributes IN)
@@ -72,7 +68,7 @@ Shader "Custom/SpaceCut"
                 _position.x += _position.y/4.0;
                 _position.x += _Time.y;
                 _position.x = abs(_position.x%2.0) - 1.0;
-                float d = sdBox(_position,float3(0.75,11.0,1.0));
+                float d = sdBox(_position,float3(0.75,1111.0,1.0));
                 return d;
              }
             float Raymarch(float3 rayOrigin, float3 rayDirection)
@@ -120,7 +116,6 @@ Shader "Custom/SpaceCut"
 
                 return normalize( normal );
             }
-            //#define SLOW true
             half4 frag(Varyings IN) : SV_Target
             {
                 float2 screenUV = IN.scrPos.xy / IN.scrPos.w;
@@ -142,7 +137,6 @@ Shader "Custom/SpaceCut"
                     }
                     else
                     {
-                        
                         float ao = AO(p, normal);
                         color = float4(tex2D(_MainTex,p.xy + p.zz).rgb/( 1.0+ ao),1.0);
                     }

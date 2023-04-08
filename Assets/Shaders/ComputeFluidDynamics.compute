@@ -1,0 +1,86 @@
+#pragma kernel FluidDynamics
+
+struct Particle
+{
+    float4 position;
+    float4 velocity;
+    float density;
+    float pressure;
+};
+
+// Inputs
+RWStructuredBuffer<Particle> particles;
+uint numParticles;
+
+// Particle properties
+float particleMass = 1.0f;
+float particleRadius = 1.0f;
+float particleStiffness = 1.0f;
+float particleDamping = 0.2f;
+float particleRestDensity = 0.1f;
+float particleViscosity = 0.1f;
+
+// Compute shader function
+[numthreads(64,1,1)]
+void FluidDynamics(uint3 id : SV_DispatchThreadID)
+{
+    // Check if this particle is valid
+    if (id.x >= numParticles)
+        return;
+
+    Particle p = particles[id.x];
+
+    // Calculate the density of the particle based on its neighbors
+    float density = particleRestDensity * particleRadius;
+    for (uint i = 0; i < numParticles; i++)
+    {
+        if (i == id.x)
+            continue;
+
+        float distance = length(p.position - particles[i].position);
+        float radius = particleRadius * 2.0f;
+
+        if (distance < radius)
+        {
+            float q = 1.0f - distance / radius;
+            density += particleMass * q * q * q;
+        }
+    }
+    p.density = density;
+
+    // Calculate the pressure of the particle based on its density
+    float pressure = particleStiffness * (density - particleRestDensity);
+    p.pressure = pressure;
+
+    // Calculate the force of the particle based on its neighbors
+    float3 force = float3(0.0f, 0.0f, 0.0f);
+    for (uint i = 0; i < numParticles; i++)
+    {
+        if (i == id.x)
+            continue;
+
+        float3 direction = p.position - particles[i].position;
+        float distance = length(direction);
+        float radius = particleRadius * 2.0f;
+
+        if (distance < radius)
+        {
+            float q = 1.0f - distance / radius;
+            float pressureForce = -particleMass * (pressure + particleStiffness * (1.0f - q)) / density;
+            float viscosityForce = particleViscosity * particleMass * (length(particles[i].velocity) - length(p.velocity)) / density;
+            force += (pressureForce + viscosityForce) * normalize(direction);
+        }
+    }
+
+    // Apply damping to the particle
+    force -= particleDamping * p.velocity.xyz;
+    density = max(density, 1.0f);
+
+    // Update the velocity and position of the particle
+    float3 prepVelocity = force / density * _DeltaTime;
+    prepVelocity = normalize(prepVelocity) * min(length(prepVelocity), 5.0f);
+    p.velocity.xyz += prepVelocity;
+    p.position.xyz += p.velocity.xyz * _DeltaTime;
+
+    particles[id.x] = p;
+}

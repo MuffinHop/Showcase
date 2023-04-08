@@ -99,7 +99,7 @@ public class MeshSlice : MonoBehaviour
             collider.sharedMesh = mesh;
         }
     }
-    private static readonly int _howManyIterations = 32;
+    private static readonly int _howManyIterations = 512;
     private static int _currentIterations = 0;
     public float SliceForce = 0; // The force with which the mesh parts will explode
     private void Update()

@@ -29,12 +29,15 @@ Shader "Raymarching/Raymarcher"
                 float3 hitPosition  : TEXCOORD1;
                 float4 scrPos       : TEXCOORD2;
                 float2 uv           : TEXCOORD3;
+				float depth         : TEXCOORD4;
             };
            sampler2D _CameraDepthTexture;
 
+            #if SLOW
             #define PARTICLE_MAX 50
             float4 DropletPositionArray[PARTICLE_MAX];
             float DropletSizeArray[PARTICLE_MAX];
+            #endif
             sampler2D _MainTex;
             
             Varyings vert(Attributes IN)
@@ -47,8 +50,10 @@ Shader "Raymarching/Raymarcher"
                 float4 worldPos = IN.vertex;
                 OUT.hitPosition =mul(unity_ObjectToWorld, worldPos);
                 OUT.scrPos = ComputeScreenPos(OUT.positionHCS); // grab position on screen
+                OUT.depth = OUT.positionHCS.z / OUT.positionHCS.w;
                 return OUT;
             }
+            #if SLOW
             #define MAX_STEPS 24
             #define MAX_DIST 32
             #define SURF_DIST 1e-4
@@ -104,6 +109,7 @@ Shader "Raymarching/Raymarcher"
 
                 return normalize( normal );
             }
+            #endif
             //#define SLOW true
             half4 frag(Varyings IN) : SV_Target
             {
@@ -139,6 +145,7 @@ Shader "Raymarching/Raymarcher"
                 {
                     discard;
                 }
+                col.a = IN.depth;
             	return col;
                 #endif
             }

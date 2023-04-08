@@ -10,7 +10,7 @@ public class FluidRenderFeature : ScriptableRendererFeature
     class FluidPass : ScriptableRenderPass
     {
         private Material _material;
-        private RenderTargetIdentifier _src, _tint;
+        private RenderTargetIdentifier _src, _tint, _sceneDepth;
         private int _tintId = Shader.PropertyToID("_Temp");
 
         public FluidPass()
@@ -27,6 +27,7 @@ public class FluidRenderFeature : ScriptableRendererFeature
         {
             RenderTextureDescriptor renderTextureDescriptor = renderingData.cameraData.cameraTargetDescriptor;
             _src = renderingData.cameraData.renderer.cameraColorTarget;
+            _sceneDepth = renderingData.cameraData.renderer.cameraDepthTarget;
             cmd.GetTemporaryRT(_tintId, renderTextureDescriptor, FilterMode.Bilinear);
             _tint = new RenderTargetIdentifier(_tintId);
         }
@@ -42,19 +43,25 @@ public class FluidRenderFeature : ScriptableRendererFeature
             if (camName.ToLower().Contains("fluid") || camName.ToLower().Contains("scenecamera")) return;
             CommandBuffer commandBuffer = CommandBufferPool.Get("FluidRenderFeature");
             VolumeStack volumeStack = VolumeManager.instance.stack;
+            
             CustomPostProcessFluid fluidData = volumeStack.GetComponent<CustomPostProcessFluid>();
-            if (fluidData.rayMarchFluidTexture.value == null)
+            if (fluidData.fluidParticleTexture.value == null)
             {
                 return;
             }
             if (fluidData.IsActive())
             {
-                _material.SetTexture("_FluidRayMarchTex", (Texture)fluidData.rayMarchFluidTexture);
-                _material.SetTexture("_MatCapTex", (Texture)fluidData.matcapTexture);
+                var camera = renderingData.cameraData.camera.GetComponent<Camera>();
+                var renderTexture = RenderTexture.GetTemporary(Screen.width, Screen.height);
+                commandBuffer.Blit(_sceneDepth,renderTexture);
+                _material.SetTexture("_DepthTex", renderTexture);
+                _material.SetTexture("_FluidRayMarchTex", (Texture)fluidData.fluidParticleTexture);
+                _material.SetTexture("_DepthFluidTexture", (Texture)fluidData.fluidParticleDepthTex);
                 _material.SetColor("_FluidColor", (Color) fluidData.fluidColor);
                 _material.SetFloat("_FluidIntensity", (float)fluidData.fluidIntensity);
                 Blit(commandBuffer,_src, _tint, _material,0);
                 Blit(commandBuffer,_tint, _src);
+                RenderTexture.ReleaseTemporary(renderTexture);
             }   
             context.ExecuteCommandBuffer(commandBuffer);
             CommandBufferPool.Release(commandBuffer);

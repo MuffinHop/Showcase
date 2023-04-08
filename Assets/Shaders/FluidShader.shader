@@ -13,8 +13,11 @@ Shader "My Post-Processing/Fluid"
             #pragma vertex vert
             #pragma fragment frag
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            // The DeclareDepthTexture.hlsl file contains utilities for sampling the
+            // Camera depth texture.
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
 			sampler2D _MainTex;
-			sampler2D _MatCapTex;
+			sampler2D _DepthFluidTexture;
 			sampler2D _FluidRayMarchTex;
 			float4 _FluidColor;
 			float _FluidIntensity;
@@ -28,6 +31,8 @@ Shader "My Post-Processing/Fluid"
 			{
 				float4 vertex : SV_POSITION;
 				float2 uv : TEXCOORD0;
+				float depth : TEXCOORD1;
+				float4 scrPos : TEXCOORD3;
 			};
 
 			Varyings vert(Attributes v)
@@ -35,6 +40,7 @@ Shader "My Post-Processing/Fluid"
 				Varyings o;
 				o.vertex = TransformObjectToHClip(v.vertex);
 				o.uv = v.uv;
+                o.scrPos = ComputeScreenPos(o.vertex ); // grab position on screen
 				return o;
 			}
             
@@ -67,17 +73,18 @@ Shader "My Post-Processing/Fluid"
 			  return max(sign(x - y), 0.0);
 			}
 			float4 sampleAvg( sampler2D tex, float scale, float2 uv) {
-			    
-			    float4 sum = tex2D(tex, uv);
-				
-			    for (float i=0.0; i<3.141592*2.0; i+=0.04) {
+			    float4 first = tex2D(tex, uv);
+				first.a = when_gt(length(first.rgb),0.0);
+			    float4 sum = first;
+			    for (float i=0.0; i<3.141592*2.0; i+=0.07) {
 			        for (float r = 0.0; r<1.0; r+=0.1) {
 			        	float4 sample = tex2D(tex, uv + float2(sin(i),cos(i))*r*scale);
+						sample.a = when_gt(length(sample.rgb),0.0);
 			            sum += sample;
 			        }
 			    }
 			    sum.a = max(sum.a,1.0);
-			    return tex2D(tex, uv).a * sum / float4(sum.a,sum.a,sum.a,sum.a);
+			    return first.a * sum / float4(sum.a,sum.a,sum.a,sum.a);
 			}
 			//#define DEBUG_FLUID 1
             float4 frag(Varyings i) : SV_Target {
@@ -85,16 +92,29 @@ Shader "My Post-Processing/Fluid"
 					float4 col = tex2D(_MainTex, i.uv);
             		float4 fluid = sampleAvg( _FluidRayMarchTex, _FluidIntensity,i.uv);
             		col = lerp(col,fluid,fluid.a);
+					float2 screenUV = i.scrPos.xy / i.scrPos.w;
+                    float depth = SampleSceneDepth(screenUV);
+					if(tex2D( _FluidRayMarchTex,i.uv).w< depth * fluid.a  )
+					{
+						discard;
+					}
+            		
             		return col;
             	#else
             		float2 marchUV = tex2D(_FluidRayMarchTex, i.uv).xy;
             		float2 uv = i.uv;
-            		float4 blurred = sampleAvg( _FluidRayMarchTex, _FluidIntensity, uv + float2(perlinnoise(i.uv * 12.0  + marchUV + _SinTime.yz),perlinnoise(i.uv * 12.0  + marchUV.y   + _SinTime.yz)) * 0.008	);
+            		float4 blurred = sampleAvg( _FluidRayMarchTex, _FluidIntensity, uv + float2(perlinnoise(i.uv * 12.0  + marchUV + _SinTime.yz),perlinnoise(i.uv * 12.0  + marchUV.y   + _SinTime.yz)) * 0.01	);
             		float alpha = when_gt(length(blurred.rgb),0.02);
             		float frenel = max(1.0 - (blurred.z-0.5)*2.0,0.0) * alpha;
-            		uv += (blurred.xy-float2(0.5,0.5)) * 0.583 * alpha + float2(perlinnoise(i.uv*4.0 + marchUV*2.0 + _SinTime.yz),perlinnoise(i.uv*4.0 + marchUV.yx*2.0 + _SinTime.yz)) * alpha *0.03;
+            		uv += (blurred.xy-float2(0.5,0.5)) * 0.583 * alpha + float2(perlinnoise(i.uv*4.0 + marchUV*2.0 + _SinTime.yz),perlinnoise(i.uv*4.0 + marchUV.yx*2.0 + _SinTime.yz)) * alpha * 0.01;
             		float4 col = tex2D(_MainTex, uv);
-            		col += frenel * _FluidColor;
+            		col = lerp( col, _FluidColor, frenel*_FluidColor.a);
+					float2 screenUV = i.scrPos.xy / i.scrPos.w;
+                    float depth = SampleSceneDepth(screenUV);
+					if(tex2D( _FluidRayMarchTex,i.uv).w< depth * blurred.a  )
+					{
+						discard;
+					}
             		return col;
             	#endif
             }

@@ -14,6 +14,6 @@ public class RotatePerlin : MonoBehaviour
     void Update()
     {
         float t = Time.time/3f;
-        transform.rotation = Quaternion.Euler(Mathf.PerlinNoise(t, 1f)*64f-90f,Time.time*30.0f,Mathf.PerlinNoise(t, 0.0f)*24f);
+        transform.rotation = Quaternion.Euler(Mathf.PerlinNoise(t, 1f)*64f,Time.time*30.0f,Mathf.PerlinNoise(t, 0.0f)*24f);
     }
 }
