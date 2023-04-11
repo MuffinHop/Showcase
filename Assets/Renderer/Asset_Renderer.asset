@@ -47,6 +47,19 @@ MonoBehaviour:
   m_Name: SpacecutRendererFeature
   m_EditorClassIdentifier: 
   m_Active: 0
+--- !u!114 &-2923887185860388277
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 85d570a19f44e40629f793a159edbd4d, type: 3}
+  m_Name: WaterdropletsRenderFeature
+  m_EditorClassIdentifier: 
+  m_Active: 1
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -65,7 +78,8 @@ MonoBehaviour:
   - {fileID: 7463040288727743301}
   - {fileID: 6766391617798670320}
   - {fileID: -6209167914892709132}
-  m_RendererFeatureMap: 45bb0b0a9a0b9267f0071296530de75df43211d2ad9ad4a9
+  - {fileID: -2923887185860388277}
+  m_RendererFeatureMap: 45bb0b0a9a0b9267f0071296530de75df43211d2ad9ad4a94b9a798b18446cd7
   m_UseNativeRenderPass: 0
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
   xrSystemData: {fileID: 11400000, guid: 60e1133243b97e347b653163a8c01b64, type: 2}
