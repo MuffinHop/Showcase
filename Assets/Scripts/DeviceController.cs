@@ -42,7 +42,7 @@ public class DeviceController : MonoBehaviour
     void Awake()
     {
         row_rate = (float) ((_BPM / 60.0) * rpb);
-        Device = new Device("asm", false);
+        Device = new Device("asm", true);
         Application.runInBackground = true;
         if (!Device.player)
         {
