@@ -119,13 +119,14 @@ public class MeshSlice : MonoBehaviour
     }
     [FormerlySerializedAs("_deviceController")] [SerializeField] public DeviceController DeviceController;
     private Track _blowUp;
-    private static readonly int _howManyIterations = 512;
+    private static readonly int _howManyIterations = 128;
     private static int _currentIterations = 0;
     public float SliceForce = 0; // The force with which the mesh parts will explode
     private List<TimeTransform> _transforms;
 
     private void Start()
     {
+        Application.targetFrameRate = 30;
         _blowUp = DeviceController.Device.GetTrack("Logg BlowUp");
         _transforms = new List<TimeTransform>();
     }
@@ -144,6 +145,7 @@ public class MeshSlice : MonoBehaviour
         if (blowUpValue < 0f)
         {
             TimeTransform closest = new TimeTransform(float.PositiveInfinity,transform.position,transform.rotation);
+            
             foreach (var timeTransform in _transforms)
             {
                 if (Mathf.Abs(timeTransform.Time + blowUpValue) < Mathf.Abs(closest.Time + blowUpValue))
