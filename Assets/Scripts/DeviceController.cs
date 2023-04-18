@@ -34,6 +34,11 @@ public class DeviceController : MonoBehaviour
         float value = track.GetValue(rowTime + 0.001f);
         return value;
     }
+    void OnApplicationQuit()
+    {
+        Device.SaveTracks();
+        Device.Dispose();
+    }
     void Awake()
     {
         row_rate = (float) ((_BPM / 60.0) * rpb);
