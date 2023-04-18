@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using RocketNet;
 using UnityEngine;
 using UnityEngine.Serialization;
 using Random = UnityEngine.Random;
@@ -41,6 +42,7 @@ public class MeshSlice : MonoBehaviour
 
             // Add the normals and UVs to their respective lists
             _normals.AddRange(normals);
+            if(uvs.Length>0)
             _UVs.AddRange(uvs);
 
             // Update the bounds of the mesh
@@ -96,19 +98,77 @@ public class MeshSlice : MonoBehaviour
             filter.mesh = mesh;
             collider.convex = true;
             meshDestroy.SliceForce = original.SliceForce;
+            meshDestroy.DeviceController = original.DeviceController;
             collider.sharedMesh = mesh;
-        }
-    }
-    private static readonly int _howManyIterations = 512;
-    private static int _currentIterations = 0;
-    public float SliceForce = 0; // The force with which the mesh parts will explode
-    private void Update()
-    {
-        if(_currentIterations++ < _howManyIterations) {
-            StartCoroutine(DestroyMeshAsync());
+            rigidbody.useGravity = false;
         }
     }
 
+    private class TimeTransform
+    {
+        public float Time;
+        public Vector3 Position;
+        public Quaternion Rotation;
+
+        public TimeTransform(float time, Vector3 position, Quaternion rotation)
+        {
+            Time = time;
+            Position = position;
+            Rotation = rotation;
+        }
+    }
+    [FormerlySerializedAs("_deviceController")] [SerializeField] public DeviceController DeviceController;
+    private Track _blowUp;
+    private static readonly int _howManyIterations = 128;
+    private static int _currentIterations = 0;
+    public float SliceForce = 0; // The force with which the mesh parts will explode
+    private List<TimeTransform> _transforms;
+
+    private void Start()
+    {
+        Application.targetFrameRate = 30;
+        _blowUp = DeviceController.Device.GetTrack("Logg BlowUp");
+        _transforms = new List<TimeTransform>();
+    }
+    private void Update()
+    {
+        float blowUpValue = DeviceController.GetValue(_blowUp);
+        if (blowUpValue > 0f)
+        {
+            if (_currentIterations++ < _howManyIterations)
+            {
+                StartCoroutine(DestroyMeshAsync());
+            }
+            _transforms.Add(new (blowUpValue,transform.position,transform.rotation));
+        }
+
+        if (blowUpValue < 0f)
+        {
+            TimeTransform closest = new TimeTransform(float.PositiveInfinity,transform.position,transform.rotation);
+            
+            foreach (var timeTransform in _transforms)
+            {
+                if (Mathf.Abs(timeTransform.Time + blowUpValue) < Mathf.Abs(closest.Time + blowUpValue))
+                {
+                    closest = timeTransform;
+                }
+            }
+
+            transform.position = closest.Position;
+            transform.rotation = closest.Rotation;
+            GetComponent<Rigidbody>().velocity = Vector3.zero;
+        }
+    }
+    int UpdateRNG(int PREV_RNG) {
+        return PREV_RNG * 0x6255 + 0x3619 & 0xFFFF;
+    }
+
+    private int _prev = 90;
+    float GetPseudoRandom()
+    {
+        _prev = UpdateRNG(_prev);
+        return (_prev - 0x7FFF) / 32768f;
+    }
     private IEnumerator DestroyMeshAsync()
     {
         var originalMesh = GetComponent<MeshFilter>().mesh; // Get the original mesh of the gameobject
@@ -138,9 +198,9 @@ public class MeshSlice : MonoBehaviour
             var plane = new Plane(
                 UnityEngine.Random.onUnitSphere, 
                 new Vector3(
-                    Random.Range(bounds.min.x, bounds.max.x),
-                    Random.Range(bounds.min.y, bounds.max.y),
-                    Random.Range(bounds.min.z, bounds.max.z)));
+                    GetPseudoRandom(),
+                    GetPseudoRandom(),
+                    GetPseudoRandom()));
 
             // Generate two submeshes by cutting the current mesh with the cutting plane
             subMeshParts.Add(MeshGeneration(t, plane, true));
@@ -248,10 +308,19 @@ public class MeshSlice : MonoBehaviour
                             original.Normals[triangles[j + 1]],
                             original.Normals[triangles[j + 2]]
                         };
-                        Vector2[] uvs = new[]
+                        Vector2[] uvs;
+                        if (original.UV.Length > 0)
                         {
-                            original.UV[triangles[j]], original.UV[triangles[j + 1]], original.UV[triangles[j + 2]]
-                        };
+                            uvs = new[]
+                            {
+                                original.UV[triangles[j]], original.UV[triangles[j + 1]], original.UV[triangles[j + 2]]
+                            };
+                        }
+                        else
+                        {
+                            uvs = new Vector2[] { Vector2.zero,Vector2.zero,Vector2.zero, };
+                        }
+
                         partMesh.AddTriangle(i,verts, normals, uvs);
                         continue;
                     }
@@ -275,17 +344,30 @@ public class MeshSlice : MonoBehaviour
                     ray2.direction = dir2;
                     plane.Raycast(ray2, out var enter2);
                     var lerp2 = enter2 / dir2.magnitude;
-
-                    //first vertex = ancor
-                    EdgeCreator(i,
-                        partMesh,
-                        left ? plane.normal * -1f : plane.normal,
-                        ray1.origin + ray1.direction.normalized * enter1,
-                        ray2.origin + ray2.direction.normalized * enter2,
-                        Vector2.Lerp(original.UV[triangles[j + singleIndex]],
-                            original.UV[triangles[j + ((singleIndex + 1) % 3)]], lerp1),
-                        Vector2.Lerp(original.UV[triangles[j + singleIndex]],
-                            original.UV[triangles[j + ((singleIndex + 2) % 3)]], lerp2), ref isEdgeSet);
+                    if (original.UV.Length > 0)
+                    {
+                        //first vertex = ancor
+                        EdgeCreator(i,
+                            partMesh,
+                            left ? plane.normal * -1f : plane.normal,
+                            ray1.origin + ray1.direction.normalized * enter1,
+                            ray2.origin + ray2.direction.normalized * enter2,
+                            Vector2.Lerp(original.UV[triangles[j + singleIndex]],
+                                original.UV[triangles[j + ((singleIndex + 1) % 3)]], lerp1),
+                            Vector2.Lerp(original.UV[triangles[j + singleIndex]],
+                                original.UV[triangles[j + ((singleIndex + 2) % 3)]], lerp2), ref isEdgeSet);
+                    }
+                    else
+                    {
+                        //first vertex = ancor
+                        EdgeCreator(i,
+                            partMesh,
+                            left ? plane.normal * -1f : plane.normal,
+                            ray1.origin + ray1.direction.normalized * enter1,
+                            ray2.origin + ray2.direction.normalized * enter2,
+                            Vector2.zero,
+                            Vector2.zero, ref isEdgeSet);
+                    }
 
                     if (sideCount == 1)
                     {
@@ -303,14 +385,23 @@ public class MeshSlice : MonoBehaviour
                             Vector3.Lerp(original.Normals[triangles[j + singleIndex]],
                                 original.Normals[triangles[j + ((singleIndex + 2) % 3)]], lerp2)
                         };
-                        Vector2[] uvs = new[]
+                        Vector2[] uvs;
+                        if (original.UV.Length > 0)
                         {
-                            original.UV[triangles[j + singleIndex]],
-                            Vector2.Lerp(original.UV[triangles[j + singleIndex]],
-                                original.UV[triangles[j + ((singleIndex + 1) % 3)]], lerp1),
-                            Vector2.Lerp(original.UV[triangles[j + singleIndex]],
-                                original.UV[triangles[j + ((singleIndex + 2) % 3)]], lerp2)
-                        };
+                            uvs = new[]
+                            {
+                                original.UV[triangles[j + singleIndex]],
+                                Vector2.Lerp(original.UV[triangles[j + singleIndex]],
+                                    original.UV[triangles[j + ((singleIndex + 1) % 3)]], lerp1),
+                                Vector2.Lerp(original.UV[triangles[j + singleIndex]],
+                                    original.UV[triangles[j + ((singleIndex + 2) % 3)]], lerp2)
+                            };
+                        }
+                        else
+                        {
+                            uvs = new Vector2[] { Vector2.zero,Vector2.zero,Vector2.zero, };
+                        }
+
                         partMesh.AddTriangle(i,verts,normals,uvs);
                         continue;
                     }
@@ -332,13 +423,22 @@ public class MeshSlice : MonoBehaviour
                                 original.Normals[triangles[j + ((singleIndex + 1) % 3)]],
                                 original.Normals[triangles[j + ((singleIndex + 2) % 3)]]
                             };
-                            Vector2[] uvs = new[]
+                            Vector2[] uvs;
+                            if (original.UV.Length > 0)
                             {
-                                Vector2.Lerp(original.UV[triangles[j + singleIndex]],
-                                    original.UV[triangles[j + ((singleIndex + 1) % 3)]], lerp1),
-                                original.UV[triangles[j + ((singleIndex + 1) % 3)]],
-                                original.UV[triangles[j + ((singleIndex + 2) % 3)]]
-                            };
+                                uvs = new[]
+                                {
+                                    Vector2.Lerp(original.UV[triangles[j + singleIndex]],
+                                        original.UV[triangles[j + ((singleIndex + 1) % 3)]], lerp1),
+                                    original.UV[triangles[j + ((singleIndex + 1) % 3)]],
+                                    original.UV[triangles[j + ((singleIndex + 2) % 3)]]
+                                };
+                            }
+                            else
+                            {
+                                uvs = new Vector2[] { Vector2.zero,Vector2.zero,Vector2.zero, };
+                            }
+
                             // Add the first triangle resulting from the cut to the MeshPart
                             partMesh.AddTriangle(i, verts, normals, uvs);
                         }
@@ -357,14 +457,23 @@ public class MeshSlice : MonoBehaviour
                                 Vector3.Lerp(original.Normals[triangles[j + singleIndex]],
                                     original.Normals[triangles[j + ((singleIndex + 2) % 3)]], lerp2),
                             };
-                            Vector2[] uvs = new[]
+                            Vector2[] uvs;
+                            if (original.UV.Length > 0)
                             {
-                                Vector2.Lerp(original.UV[triangles[j + singleIndex]],
-                                    original.UV[triangles[j + ((singleIndex + 1) % 3)]], lerp1),
-                                original.UV[triangles[j + ((singleIndex + 2) % 3)]],
-                                Vector2.Lerp(original.UV[triangles[j + singleIndex]],
-                                    original.UV[triangles[j + ((singleIndex + 2) % 3)]], lerp2)
-                            };
+                                uvs = new[]
+                                {
+                                    Vector2.Lerp(original.UV[triangles[j + singleIndex]],
+                                        original.UV[triangles[j + ((singleIndex + 1) % 3)]], lerp1),
+                                    original.UV[triangles[j + ((singleIndex + 2) % 3)]],
+                                    Vector2.Lerp(original.UV[triangles[j + singleIndex]],
+                                        original.UV[triangles[j + ((singleIndex + 2) % 3)]], lerp2)
+                                };
+                            }
+                            else
+                            {
+                                uvs = new Vector2[] { Vector2.zero,Vector2.zero,Vector2.zero, };
+                            }
+
                             // Add the second triangle resulting from the cut to the MeshPart
                             partMesh.AddTriangle(i,verts,normals,uvs);
                         }

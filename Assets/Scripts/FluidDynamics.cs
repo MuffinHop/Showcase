@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using RocketNet;
 using UnityEngine;
 using Vector3 = UnityEngine.Vector3;
 using Unity.Burst;
@@ -16,24 +17,29 @@ public class FluidDynamics : MonoBehaviour
     [SerializeField,Range(0.01f,1f)] private float particleDamping = 0.2f;
     [SerializeField,Range(0.001f,113f)] private float particleRestDensity = 0.1f;
     [SerializeField,Range(0.01f,1f)] private float particleViscosity = 0.1f;
-
+    [SerializeField] private DeviceController _deviceController;
     private ParticleSystem.Particle[] particles;
     private ParticleSystem particleSystem;
+    private Track _fluidDynamics;
 
     private void Awake()
     {
+        _fluidDynamics = _deviceController.Device.GetTrack("FluidDynamics");
         particleSystem = GetComponent<ParticleSystem>();
         particles = new ParticleSystem.Particle[particleSystem.main.maxParticles];
         StartCoroutine(Execute());
     }
 
-    
     [BurstCompile]
     private IEnumerator Execute()
     {
         int threadsCount = Process.GetCurrentProcess().Threads.Count;
         while (true)
         {
+            if (_deviceController.GetValue(_fluidDynamics) == 0f)
+            {
+                yield return null;
+            }
             var watch = new Stopwatch();
             var mainCamera = Camera.main;
             watch.Start();

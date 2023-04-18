@@ -75,10 +75,13 @@ Shader "My Post-Processing/Fluid"
 			float4 sampleAvg( sampler2D tex, float scale, float2 uv) {
 			    float4 first = tex2D(tex, uv);
 				first.a = when_gt(length(first.rgb),0.0);
+				float2 normal = normalize(tex2D(tex, uv).xy);
 			    float4 sum = first;
-			    for (float i=0.0; i<3.141592*2.0; i+=0.07) {
+			    /*for (float i=0.0; i<3.141592*2.0; i+=0.07)*/ {
 			        for (float r = 0.0; r<1.0; r+=0.1) {
-			        	float4 sample = tex2D(tex, uv + float2(sin(i),cos(i))*r*scale);
+			        	//float2 direction = float2(sin(i),cos(i));
+			        	float2 direction = normal;
+			        	float4 sample = tex2D(tex, uv + direction*r*scale);
 						sample.a = when_gt(length(sample.rgb),0.0);
 			            sum += sample;
 			        }
